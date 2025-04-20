@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flässin Vedonlyöntityökalu</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 700px;
+            margin: 20px auto;
+            padding: 15px;
+            background-color: #e9ecef;
+            color: #333;
+        }
+        .container {
+            background: #ffffff;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 1.6em; /* Pienennetty 1.8em -> 1.6em */
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        h2 {
+            font-size: 1.1em; /* Pienennetty 1.3em -> 1.1em */
+            color: #34495e;
+            margin-bottom: 8px;
+        }
+        .section {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            font-size: 0.8em; /* Pienennetty 0.9em -> 0.8em */
+            margin: 4px 0 2px;
+            color: #34495e;
+        }
+        input, select {
+            padding: 7px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 0.8em; /* Pienennetty 0.9em -> 0.8em */
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            margin-bottom: 6px;
+        }
+        button {
+            padding: 7px 12px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8em; /* Pienennetty 0.9em -> 0.8em */
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            margin-top: 8px;
+            padding: 8px;
+            border: 1px solid #ecf0f1;
+            border-radius: 5px;
+            font-size: 0.75em; /* Pienennetty 0.85em -> 0.75em */
+            background-color: #f8f9fa;
+        }
+        canvas {
+            max-width: 100%;
+            margin-top: 8px;
+        }
+        #loginScreen {
+            text-align: center;
+        }
+        #loginScreen input {
+            max-width: 300px;
+            margin: 8px auto;
+        }
+        #loginScreen button {
+            background-color: #2ecc71;
+        }
+        #loginScreen button:hover {
+            background-color: #27ae60;
+        }
+        .hidden {
+            display: none;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 8px;
+            }
+            .container {
+                padding: 8px;
+            }
+            h1 {
+                font-size: 1.4em; /* Pienennetty mobiilissa */
+            }
+            h2 {
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Salasanan syöttönäyttö -->
+    <div id="loginScreen" class="container">
+        <h1>Flässin Vedonlyöntityökalu</h1>
+        <label>Syötä salasana:</label>
+        <input type="password" id="passwordInput" placeholder="Salasana" onkeypress="if(event.key === 'Enter') checkPassword()">
+        <button onclick="checkPassword()">Kirjaudu</button>
+        <p id="errorMessage" style="color: red; font-size: 0.8em;"></p>
+    </div>
+
+    <!-- Pääsisältö (piilotettu aluksi) -->
+    <div id="mainContent" class="container hidden">
+        <h1>Flässin Vedonlyöntityökalu</h1>
+
+        <!-- Poisson-laskuri -->
+        <div class="section">
+            <h2>Poisson-laskuri</h2>
+            <label>Syötä odottama (esim. 3.2):</label>
+            <input type="number" step="0.01" id="lambda" placeholder="Esim. 3.2" required>
+            <button onclick="calculatePoisson()">Laske todennäköisyydet</button>
+            <div id="poissonResult" class="result"></div>
+            <canvas id="poissonChart"></canvas>
+        </div>
+
+        <!-- Kerroinlaskuri -->
+        <div class="section">
+            <h2>Maaliodottama kertoimista</h2>
+            <label>Syötä kertoimet (esim. 1.85, 1.95):</label>
+            <label>Yli:</label>
+            <input type="number" step="0.01" id="overOdds" placeholder="Esim. 1.85" required>
+            <label>Alle:</label>
+            <input type="number" step="0.01" id="underOdds" placeholder="Esim. 1.95" required>
+            <label>Valitse maalimäärä (yli/alle):</label>
+            <select id="goalThreshold">
+                <option value="0.5">0.5</option>
+                <option value="1.5">1.5</option>
+                <option value="2.5" selected>2.5</option>
+                <option value="3.5">3.5</option>
+                <option value="4.5">4.5</option>
+                <option value="5.5">5.5</option>
+            </select>
+            <button onclick="calculateOdds()">Laske maaliodottama</button>
+            <div id="oddsResult" class="result"></div>
+        </div>
+    </div>
+
+    <!-- Chart.js kirjasto kaavioita varten -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Salasanan tarkistus
+        function checkPassword() {
+            const password = document.getElementById('passwordInput').value;
+            const correctPassword = 'Lavis'; // Vaihda haluamasi salasana tähän
+            const errorMessage = document.getElementById('errorMessage');
+
+            if (password === correctPassword) {
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                errorMessage.textContent = '';
+            } else {
+                errorMessage.textContent = 'Väärä salasana. Yritä uudelleen.';
+            }
+        }
+
+        // Poisson-jakauman CDF-funktio
+        function poissonCDF(k, lambda) {
+            let sum = 0;
+            for (let i = 0; i <= k; i++) {
+                sum += (Math.exp(-lambda) * Math.pow(lambda, i)) / factorial(i);
+            }
+            return sum;
+        }
+
+        // Faktorifunktio
+        function factorial(n) {
+            if (n === 0 || n === 1) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) result *= i;
+            return result;
+        }
+
+        // Minimointifunktio maaliodottaman estimointiin
+        function estimateLambda(targetProb, goalThreshold) {
+            const maxLambda = 10;
+            const step = 0.01;
+            let bestLambda = 0;
+            let minDiff = Infinity;
+
+            for (let lambda = 0.01; lambda <= maxLambda; lambda += step) {
+                const poissonProb = 1 - poissonCDF(Math.floor(goalThreshold), lambda);
+                const diff = Math.abs(poissonProb - targetProb);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    bestLambda = lambda;
+                }
+            }
+            return bestLambda;
+        }
+
+        // Poisson-laskuri
+        function calculatePoisson() {
+            const lambda = parseFloat(document.getElementById('lambda').value);
+            const poissonResult = document.getElementById('poissonResult');
+            const thresholds = [0.5, 1.5, 2.5, 3.5, 4.5, 5.5];
+            let probabilities = [];
+
+            if (isNaN(lambda) || lambda <= 0) {
+                poissonResult.innerHTML = '<p style="color: red;">Syötä positiivinen odottama.</p>';
+                return;
+            }
+
+            let resultText = 'Poisson-todennäköisyydet:<br><br>';
+            thresholds.forEach(threshold => {
+                const prob = 1 - poissonCDF(Math.floor(threshold), lambda);
+                probabilities.push(prob);
+                resultText += `Yli ${threshold} maalia: ${prob.toFixed(4)} (${(prob * 100).toFixed(2)}%)<br>`;
+            });
+            poissonResult.innerHTML = resultText;
+
+            const ctx = document.getElementById('poissonChart').getContext('2d');
+            if (window.poissonChart) window.poissonChart.destroy();
+            window.poissonChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: thresholds.map(t => `Yli ${t}`),
+                    datasets: [{
+                        label: `Poisson-jakauma (λ = ${lambda})`,
+                        data: probabilities,
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)',
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 1,
+                            title: {
+                                display: true,
+                                text: 'Todennäköisyys'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `Poisson-jakauma (λ = ${lambda})`
+                        }
+                    }
+                }
+            });
+        }
+
+        // Kerroinlaskuri
+        function calculateOdds() {
+            const overOdds = parseFloat(document.getElementById('overOdds').value);
+            const underOdds = parseFloat(document.getElementById('underOdds').value);
+            const goalThreshold = parseFloat(document.getElementById('goalThreshold').value);
+            const oddsResult = document.getElementById('oddsResult');
+
+            if (isNaN(overOdds) || isNaN(underOdds) || overOdds <= 1 || underOdds <= 1) {
+                oddsResult.innerHTML = '<p style="color: red;">Syötä kelvolliset kertoimet (> 1).</p>';
+                return;
+            }
+
+            const overProb = 1 / overOdds;
+            const underProb = 1 / underOdds;
+            const totalProb = overProb + underProb;
+            const margin = totalProb - 1;
+            const scaledOverProb = overProb / totalProb;
+            const scaledUnderProb = underProb / totalProb;
+
+            const estimatedLambda = estimateLambda(scaledOverProb, goalThreshold);
+
+            let resultText = `Kertoimien todennäköisyydet (yli/alle ${goalThreshold} maalia):<br><br>`;
+            resultText += `Yli: ${scaledOverProb.toFixed(4)} (${(scaledOverProb * 100).toFixed(2)}%)<br>`;
+            resultText += `Alle: ${scaledUnderProb.toFixed(4)} (${(scaledUnderProb * 100).toFixed(2)}%)<br>`;
+            resultText += `Vedonlyöntiyhtiön marginaali: ${margin.toFixed(4)} (${(margin * 100).toFixed(2)}%)<br>`;
+            resultText += `<br>Maaliodottama: ${estimatedLambda.toFixed(2)}`;
+            oddsResult.innerHTML = resultText;
+        }
+    </script>
+</body>
+</html>
